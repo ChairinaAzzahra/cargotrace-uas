@@ -453,6 +453,47 @@
     @endif
 
     @push('scripts')
+    <style>
+        /* Pulsing animation for delivery point */
+        @keyframes deliveryPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.6); }
+            70%  { box-shadow: 0 0 0 14px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+        .delivery-pin-inner {
+            animation: deliveryPulse 1.8s infinite;
+        }
+
+        /* Origin pin bounce */
+        @keyframes originBounce {
+            0%, 100% { transform: rotate(-45deg) translateY(0); }
+            50%       { transform: rotate(-45deg) translateY(-4px); }
+        }
+        .origin-pin-wrap {
+            animation: originBounce 2.4s ease-in-out infinite;
+        }
+
+        /* Waypoint pop */
+        @keyframes waypointPop {
+            0%   { transform: scale(0); opacity: 0; }
+            70%  { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .waypoint-dot {
+            animation: waypointPop 0.4s ease forwards;
+        }
+
+        /* Leaflet popup styling override */
+        .leaflet-popup-content b { color: #0f172a; }
+        .popup-badge {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+    </style>
     <script>
         function openResolveModal(exceptionId, type) {
             document.getElementById('resolve-modal-subtitle').innerText = 'Resolving ' + type + ' issue.';
@@ -461,12 +502,13 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            // Initialize Leaflet Map
+            // ── Coordinates ──────────────────────────────────────────────
             const originLat = {{ $shipment->origin->latitude }};
             const originLng = {{ $shipment->origin->longitude }};
-            const destLat = {{ $shipment->destination->latitude }};
-            const destLng = {{ $shipment->destination->longitude }};
+            const destLat   = {{ $shipment->destination->latitude }};
+            const destLng   = {{ $shipment->destination->longitude }};
 
+            // ── Map init ─────────────────────────────────────────────────
             const map = L.map('shipmentMap').setView([originLat, originLng], 4);
 
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -474,57 +516,152 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
 
-            // Collect coordinates for route polyline
-            const routePoints = [
-                [originLat, originLng]
-            ];
+            // ── Route coordinate list ─────────────────────────────────────
+            const routePoints = [[originLat, originLng]];
 
-            // Origin Marker
-            L.circleMarker([originLat, originLng], {
-                radius: 8,
-                fillColor: '#0f172a',
-                color: '#ffffff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 1
-            }).addTo(map).bindPopup('<b>ORIGIN:</b> {{ $shipment->origin->name }}<br>{{ $shipment->origin->city }}, {{ $shipment->origin->country }}');
+            // ── ORIGIN custom pin (dark navy) ─────────────────────────────
+            const originIcon = L.divIcon({
+                className: '',
+                html: `<div class="origin-pin-wrap" style="
+                            width:32px; height:32px;
+                            background:#0f172a;
+                            border:3px solid #ffffff;
+                            border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);
+                            box-shadow:0 4px 12px rgba(0,0,0,0.35);
+                            display:flex; align-items:center; justify-content:center;">
+                        <svg style="transform:rotate(45deg);width:14px;height:14px;" fill="white" viewBox="0 0 24 24">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z
+                                     m0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5
+                                     2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                    </div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -34]
+            });
 
-            // Destination Marker
-            L.circleMarker([destLat, destLng], {
-                radius: 8,
-                fillColor: '#d97706',
-                color: '#ffffff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 1
-            }).addTo(map).bindPopup('<b>DESTINATION:</b> {{ $shipment->destination->name }}<br>{{ $shipment->destination->city }}, {{ $shipment->destination->country }}');
+            L.marker([originLat, originLng], { icon: originIcon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width:160px;">
+                        <b style="font-size:12px;">🏭 ORIGIN / PICKUP</b><br>
+                        <span style="font-size:13px;font-weight:700;color:#0f172a;">{{ $shipment->origin->name }}</span><br>
+                        <span style="font-size:11px;color:#64748b;">{{ $shipment->origin->city }}, {{ $shipment->origin->country }}</span><br>
+                        <span class="popup-badge" style="background:#e2e8f0;color:#0f172a;">PORT: {{ $shipment->origin->port_code ?? 'N/A' }}</span>
+                    </div>`);
 
-            // Tracking waypoints
+            // ── DESTINATION / DELIVERY custom pin (amber + pulse) ─────────
+            const deliveryIcon = L.divIcon({
+                className: '',
+                html: `<div style="position:relative;width:40px;height:40px;">
+                        <!-- Pulsing ring -->
+                        <div style="
+                            position:absolute; top:50%; left:50%;
+                            transform:translate(-50%,-50%);
+                            width:40px; height:40px;
+                            border-radius:50%;
+                            background:rgba(217,119,6,0.18);
+                            animation:deliveryPulse 1.8s infinite;"></div>
+                        <!-- Pin body -->
+                        <div class="delivery-pin-inner" style="
+                            position:absolute; top:4px; left:4px;
+                            width:32px; height:32px;
+                            background:linear-gradient(135deg,#f59e0b,#d97706);
+                            border:3px solid #ffffff;
+                            border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);
+                            box-shadow:0 4px 14px rgba(217,119,6,0.55);
+                            display:flex; align-items:center; justify-content:center;">
+                            <svg style="transform:rotate(45deg);width:15px;height:15px;" fill="white" viewBox="0 0 24 24">
+                                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34
+                                         3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83
+                                         0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5
+                                         1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5
+                                         1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                            </svg>
+                        </div>
+                    </div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -42]
+            });
+
+            const isDelivered = '{{ $shipment->current_status }}' === 'DELIVERED';
+
+            L.marker([destLat, destLng], { icon: deliveryIcon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width:180px;">
+                        <b style="font-size:12px;">📦 DELIVERY POINT</b><br>
+                        <span style="font-size:13px;font-weight:700;color:#0f172a;">{{ $shipment->destination->name }}</span><br>
+                        <span style="font-size:11px;color:#64748b;">{{ $shipment->destination->city }}, {{ $shipment->destination->country }}</span><br>
+                        <span class="popup-badge" style="background:#e2e8f0;color:#0f172a;">PORT: {{ $shipment->destination->port_code ?? 'N/A' }}</span><br>
+                        <span class="popup-badge" style="${isDelivered ? 'background:#d1fae5;color:#065f46;' : 'background:#fef3c7;color:#92400e;'}">
+                            ${isDelivered ? '✅ DELIVERED' : '🚚 AWAITING DELIVERY'}
+                        </span>
+                    </div>`);
+
+            // ── Tracking EVENT waypoints ───────────────────────────────────
             @foreach ($shipment->trackingEvents as $ev)
                 @if ($ev->latitude && $ev->longitude)
                     routePoints.push([{{ $ev->latitude }}, {{ $ev->longitude }}]);
-                    L.circleMarker([{{ $ev->latitude }}, {{ $ev->longitude }}], {
-                        radius: 6,
-                        fillColor: '{{ $ev->is_exception ? "#e11d48" : "#059669" }}',
-                        color: '#ffffff',
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 1
-                    }).addTo(map).bindPopup('<b>{{ $ev->event_type }}</b><br>{{ $ev->event_time->format("d M Y H:i") }}<br>{{ addslashes($ev->description) }}');
+
+                    const wpIcon_{{ $loop->index }} = L.divIcon({
+                        className: '',
+                        html: `<div class="waypoint-dot" style="
+                            width:14px; height:14px;
+                            background:{{ $ev->is_exception ? '#e11d48' : '#059669' }};
+                            border:2px solid white;
+                            border-radius:50%;
+                            box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+                        iconSize: [14, 14],
+                        iconAnchor: [7, 7],
+                        popupAnchor: [0, -10]
+                    });
+
+                    L.marker([{{ $ev->latitude }}, {{ $ev->longitude }}], { icon: wpIcon_{{ $loop->index }} })
+                        .addTo(map)
+                        .bindPopup(`
+                            <div style="min-width:160px;">
+                                <span class="popup-badge" style="{{ $ev->is_exception ? 'background:#fce7f3;color:#9d174d;' : 'background:#d1fae5;color:#065f46;' }}">
+                                    {{ $ev->is_exception ? '⚠️ EXCEPTION' : '✅ CHECKPOINT' }}
+                                </span><br>
+                                <b style="font-size:12px;">{{ $ev->event_type }}</b><br>
+                                <span style="font-size:11px;color:#64748b;">{{ $ev->event_time->format('d M Y H:i') }}</span><br>
+                                <span style="font-size:12px;">{{ addslashes($ev->description) }}</span>
+                            </div>`);
                 @endif
             @endforeach
 
             routePoints.push([destLat, destLng]);
 
-            // Draw polyline connecting journey
+            // ── Route polyline ─────────────────────────────────────────────
             const polyline = L.polyline(routePoints, {
                 color: '#1e3a8a',
                 weight: 3,
                 opacity: 0.75,
-                dashArray: '6, 6'
+                dashArray: '8, 6'
             }).addTo(map);
 
-            map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+            // ── Map legend ────────────────────────────────────────────────
+            const legend = L.control({ position: 'bottomright' });
+            legend.onAdd = function () {
+                const div = L.DomUtil.create('div');
+                div.style.cssText = 'background:white;padding:10px 14px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:11px;line-height:1.9;min-width:140px;';
+                div.innerHTML = `
+                    <div style="font-weight:700;color:#0f172a;margin-bottom:4px;font-size:12px;">📍 Map Legend</div>
+                    <div><span style="display:inline-block;width:12px;height:12px;background:#0f172a;border-radius:50% 50% 50% 0;transform:rotate(-45deg);vertical-align:middle;margin-right:6px;"></span>Origin / Pickup</div>
+                    <div><span style="display:inline-block;width:12px;height:12px;background:#d97706;border-radius:50% 50% 50% 0;transform:rotate(-45deg);vertical-align:middle;margin-right:6px;"></span>Delivery Point</div>
+                    <div><span style="display:inline-block;width:11px;height:11px;background:#059669;border-radius:50%;vertical-align:middle;margin-right:6px;"></span>Checkpoint</div>
+                    <div><span style="display:inline-block;width:11px;height:11px;background:#e11d48;border-radius:50%;vertical-align:middle;margin-right:6px;"></span>Exception</div>
+                    <div><span style="display:inline-block;width:22px;height:3px;background:#1e3a8a;border-top:2px dashed #1e3a8a;vertical-align:middle;margin-right:6px;"></span>Route</div>`;
+                return div;
+            };
+            legend.addTo(map);
+
+            // ── Fit map bounds ─────────────────────────────────────────────
+            map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
         });
     </script>
     @endpush

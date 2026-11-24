@@ -3,18 +3,11 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex items-center">
-                <!-- Logo -->
-                <div class="shrink-0 flex items-center space-x-3">
-                    <a href="{{ route('dashboard') }}" class="flex items-center space-x-2.5">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-navy-700 to-navy-900 border border-beige-400/40 flex items-center justify-center shadow-lg text-beige-300">
-                            <svg class="w-5 h-5 text-beige-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <span class="text-lg font-extrabold text-white tracking-tight">Cargo<span class="text-beige-300">Trace</span></span>
-                            <span class="hidden sm:inline-block text-[10px] uppercase font-mono tracking-wider ml-1.5 px-1.5 py-0.5 rounded bg-navy-800 text-beige-200 border border-navy-700">Enterprise</span>
-                        </div>
+                <!-- Title / Brand (No Icon Logo) -->
+                <div class="shrink-0 flex items-center">
+                    <a href="{{ route('dashboard') }}" class="flex items-center">
+                        <span class="text-xl font-extrabold text-white tracking-tight">Cargo<span class="text-beige-300">Trace</span></span>
+                        <span class="hidden sm:inline-block text-[10px] uppercase font-mono tracking-wider ml-2 px-2 py-0.5 rounded bg-navy-800 text-beige-200 border border-navy-700">Enterprise</span>
                     </a>
                 </div>
 

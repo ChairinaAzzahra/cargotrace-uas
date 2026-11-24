@@ -94,8 +94,7 @@
             <footer class="bg-navy-900 border-t border-navy-800 text-beige-200 py-6 text-sm">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
                     <div class="flex items-center space-x-2">
-                        <div class="w-6 h-6 rounded bg-navy-700 text-beige-300 flex items-center justify-center font-bold text-xs">CT</div>
-                        <span class="font-semibold text-white tracking-wide">CargoTrace</span>
+                        <span class="font-bold text-white tracking-wide">Cargo<span class="text-beige-300">Trace</span></span>
                         <span class="text-slate-400">| Global Shipment Visibility Platform</span>
                     </div>
                     <div class="text-slate-400 text-xs">

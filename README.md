@@ -143,7 +143,7 @@ php artisan test
 
 
 A personal note reflection:
-Jujur, saya tidak mengerjakan proyek ini dengan sungguh sungguh selama satu bulan ini.
+Jujur, saya tidak mengerjakan proyek ini dengan sungguh-sungguh selama satu bulan ini.
 Saya kehilangan motibasi dan merasa kesulitan mengikuti ritme perkuliahan, sehingga terus menunda pengerjaan sampai deadline semakin dekat.
 Akibatnya, proyek ini banyak bergantungan pada bantuan AI (claude).
 Saya benar-benar menyesal telah menyia-nyiakan waktu yang saya punya. Hari ini saya berusaha menyelesaikannya semampu saya, tetapi saya sadar seharusnya saya mulai jauh lebih awal.
